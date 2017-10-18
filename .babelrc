@@ -1,0 +1,9 @@
+{
+  "presets": [
+    ["env", {
+      "targets": {
+        "browsers": ["ie >= 11", "safari >= 7", "firefox >= 33", "chrome >= 40"]
+      }
+    }]
+  ]
+}

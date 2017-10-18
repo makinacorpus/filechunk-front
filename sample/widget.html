@@ -1,0 +1,25 @@
+<!--
+  This is the widget the JavaScript code awaits for.
+  All data attributes on input element are options.
+  -->
+<div>
+  <div class="filechunk-widget-table">
+    <div class="filechunk-widget-row">
+      <div class="filechunk-widget-drop">
+        <span style="" class="text-muted message">Drag and drop files or click here…</span>
+        <!-- Name attribute depends upon the underlaying framework, it can be anything -->
+        <input
+          data-token="wO_Ft81ye79QSfLbJD3bklxNLUelLkFcOnUXA0vlNEU"
+          data-chunksize="102400"
+          data-uri-upload="/system/chunk-upload"
+          data-uri-remove="/system/chunk-remove"
+          data-tpl-remove="<input class=&quot;filechunk-remove btn btn-danger&quot; type=&quot;submit&quot; value=&quot;Retirer&quot; />"
+          data-tpl-item="<li data-fid=&quot;FID&quot;></li>"
+          name="files[input]"
+          type="file"/>
+      </div>
+    </div>
+  </div>
+  <!-- Name attribute depends upon the underlaying framework, it can be anything -->
+  <input name="file[values]" value="{&quot;1&quot;:filename,&quot;2&quot;:hash!filename}" type="hidden">
+<div>
