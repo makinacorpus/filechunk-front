@@ -84,6 +84,10 @@ initially rendered, but for security reasons you obviously need to check that
 when validating your form input (default file list from the initial form built
 is supposedly known).
 
+The hash is basically the file's MD5 summary, that matches the uploaded file.
+Until the file is not completly uploaded, the hash is subject to change upon
+every upload endpoint call.
+
 See the next session for what to do with the hash.
 
 ### Upload endpoint

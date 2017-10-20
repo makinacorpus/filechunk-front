@@ -328,7 +328,7 @@ export class FilechunkWidget {
         // https://stackoverflow.com/a/16596041
         if (this.isMSIE) {
             const clone = <HTMLInputElement>this.inputElement.cloneNode(false);
-            (<Element>this.inputElement.parentElement).replaceChild(this.inputElement, clone);
+            (<Element>this.inputElement.parentElement).replaceChild(clone, this.inputElement);
             this.inputElement = clone;
             this.inputElement.addEventListener("change", event => this.onUploadChangeListener(event));
             this.inputElement.addEventListener("drop", event => this.onUploadChangeListener(event));
