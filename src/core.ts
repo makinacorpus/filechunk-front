@@ -216,7 +216,7 @@ export class FilechunkWidget {
             const elementString = this.config.itemPreviewTemplate.replace("FID", item.id);
             const element = this.createElementFromString(elementString);
             element.innerHTML = item.filename || item.hash || item.id;
-            const removeString = this.config.removeButtonTemplate.replace("LABEL", this.translate("Remove"));
+            const removeString = this.config.removeButtonTemplate.replace(/LABEL/g, this.translate("Remove"));
             const remove = this.createElementFromString(removeString);
             remove.addEventListener("click", (event: MouseEvent) => {
                 event.stopPropagation();
