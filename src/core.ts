@@ -161,12 +161,15 @@ export class FilechunkWidget {
         this.inputElement.required = false;
 
         // Parse initial values and set items and refresh widget state
-        try {
-            const defaultValues = JSON.parse(this.valueElement.value);
-            for (let id in defaultValues) {
-                let value = defaultValues[id];
-                if ("object" === typeof value) { // Just ignore invalid input
-                    this.currentValue.push(new Item(id, value.filename, value.hash, value.preview));
+	try {
+            const valueAsString = this.valueElement.value;
+            if (valueAsString && "" != valueAsString) {
+                const defaultValues = JSON.parse(this.valueElement.value);
+                for (let id in defaultValues) {
+                    let value = defaultValues[id];
+                    if ("object" === typeof value) { // Just ignore invalid input
+                        this.currentValue.push(new Item(id, value.filename, value.hash, value.preview));
+                    }
                 }
             }
         } catch (error) {
