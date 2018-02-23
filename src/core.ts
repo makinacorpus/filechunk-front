@@ -161,7 +161,7 @@ export class FilechunkWidget {
         this.inputElement.required = false;
 
         // Parse initial values and set items and refresh widget state
-	try {
+        try {
             const valueAsString = this.valueElement.value;
             if (valueAsString && "" != valueAsString) {
                 const defaultValues = JSON.parse(this.valueElement.value);
