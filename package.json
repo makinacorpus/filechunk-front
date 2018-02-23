@@ -4,7 +4,7 @@
     "main": "resources/index.js",
     "repository": "https://github.com/makinacorpus/filechunk-front.git",
     "author": "Makina Corpus",
-    "license": "GPL-2",
+    "license": "GPL-2.0-or-later",
     "devDependencies": {
         "babel-core": "^6.26.0",
         "babel-loader": "^7.1.2",
