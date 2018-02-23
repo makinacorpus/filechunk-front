@@ -77,10 +77,26 @@ class FilechunkConfig {
             throw "Input widget has no remove url set, file upload is not possible";
         }
 
+        // Avoid the widget to crash in case there's a wrong data-max-count
+        // value - fallback on 1 when ensure: avoid sending many files wrongly
+        // to server.
+        const maxCountRaw = element.getAttribute('data-max-count');
+        if (maxCountRaw) {
+            try {
+                this.maxCount = checkNumber(maxCountRaw);
+            } catch (err) {
+                console.log(err);
+                this.maxCount = 1;
+            }
+        } else if (element.multiple) {
+            this.maxCount = 0;
+        } else {
+            this.maxCount = 1;
+        }
+
         this.token = <string>element.getAttribute('data-token');
         this.isMultiple = element.multiple;
         this.chunksize = checkNumber(element.getAttribute('data-chunksize') || DEFAULT_CHUNKSIZE);
-        this.maxCount = this.isMultiple ? (checkNumber(element.getAttribute('data-max-count')) || 1) : 1;
         this.uploadUrl = <string>element.getAttribute('data-uri-upload');
         this.removeUrl = <string>element.getAttribute('data-uri-remove');
         this.removeButtonTemplate = element.getAttribute( 'data-tpl-remove' ) || DEFAULT_REMOVE_BUTTON;
