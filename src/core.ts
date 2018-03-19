@@ -142,7 +142,7 @@ export class FilechunkWidget {
             throw `Could not find the drop zone`;
         }
 
-        let previewContainer = wrapper.querySelector(".preview-thumbnail");
+        let previewContainer = wrapper.querySelector(".preview-container");
         if (!previewContainer) {
             previewContainer = <HTMLElement>document.createElement("ul");
             previewContainer.classList.add("preview-container");

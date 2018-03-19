@@ -9,7 +9,10 @@ Drupal.behaviors.filechunk = {
             return;
         }
         for (let widget of <HTMLElement[]><any>context.querySelectorAll(".filechunk-widget-table")) {
-            new FilechunkWidget(widget, Drupal.t);
+            if (!widget.hasAttribute("data-filechunk-init")) {
+                widget.setAttribute("data-filechunk-init", "1");
+                new FilechunkWidget(widget, Drupal.t);
+            }
         }
     }
 };
