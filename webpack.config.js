@@ -8,7 +8,7 @@ const distDirectory = path.resolve(__dirname, 'dist');
 const extractLess = new ExtractTextPlugin({filename: "filechunk.css"});
 
 module.exports = {
-  entry: ['core-js/modules/es6.promise', './src/index.js'],
+  entry: ['./src/index.js'],
   //devtool: 'source-map',
   plugins: [
     new CleanWebpackPlugin([distDirectory]),
