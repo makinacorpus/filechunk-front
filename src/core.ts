@@ -1,4 +1,6 @@
 
+import { Context, Item, Translate, UpdateProgress, upload } from "./upload";
+
 const DEFAULT_CHUNKSIZE = 1024 * 1024 * 2;
 const DEFAULT_REMOVE_BUTTON = `<button class="filechunk-remove btn btn-primary" type="submit" value="LABEL">LABEL</button>`;
 const DEFAULT_ITEM_TEMPLATE = `<li data-fid="FID"></li>`;
@@ -39,31 +41,19 @@ function checkNumber(value: any, min?: number): number {
     return value;
 }
 
-class Item {
-    readonly id: string;
-    readonly filename: string;
-    readonly hash: string | null;
-    readonly preview: string | null;
-
-    constructor(id: string, filename: string, hash?: string, preview?: string) {
-        this.id = id;
-        this.filename = filename;
-        this.hash = hash || null;
-        this.preview = hash || null;
-    }
-}
-
-class FilechunkConfig {
-    readonly token: string;
-    readonly isMultiple: boolean;
+class FilechunkConfig implements Context {
     readonly chunksize: number;
-    readonly maxCount: number;
-    readonly uploadUrl: string;
-    readonly removeUrl: string;
-    readonly removeButtonTemplate: string = `<button class="filechunk-remove btn btn-primary" type="submit" value="Remove">' + Drupal.t( "Remove" ) + '</button>`;
+    readonly endpoint: string;
+    readonly fieldname: string;
+    readonly isMultiple: boolean;
     readonly itemPreviewTemplate: string = `<li data-fid="FID"></li>`;
+    readonly maxCount: number;
+    readonly onUpdate?: UpdateProgress;
+    readonly removeButtonTemplate: string = `<button class="filechunk-remove btn btn-primary" type="submit" value="Remove">' + Drupal.t( "Remove" ) + '</button>`;
+    readonly removeUrl: string;
+    readonly token: string;
 
-    constructor(element: HTMLInputElement) {
+    constructor(element: HTMLInputElement, onUpdate?: UpdateProgress) {
         if (element.type !== "file") {
             throw "Input widget is not a file input";
         }
@@ -94,13 +84,15 @@ class FilechunkConfig {
             this.maxCount = 1;
         }
 
-        this.token = <string>element.getAttribute('data-token');
-        this.isMultiple = element.multiple;
         this.chunksize = checkNumber(element.getAttribute('data-chunksize') || DEFAULT_CHUNKSIZE);
-        this.uploadUrl = <string>element.getAttribute('data-uri-upload');
-        this.removeUrl = <string>element.getAttribute('data-uri-remove');
-        this.removeButtonTemplate = element.getAttribute( 'data-tpl-remove' ) || DEFAULT_REMOVE_BUTTON;
+        this.endpoint = <string>element.getAttribute('data-uri-upload');
+        this.fieldname = <string>element.getAttribute('data-field-name');
+        this.isMultiple = element.multiple;
         this.itemPreviewTemplate = element.getAttribute( 'data-tpl-item' ) || DEFAULT_ITEM_TEMPLATE;
+        this.onUpdate = onUpdate;
+        this.removeButtonTemplate = element.getAttribute( 'data-tpl-remove' ) || DEFAULT_REMOVE_BUTTON;
+        this.removeUrl = <string>element.getAttribute('data-uri-remove');
+        this.token = <string>element.getAttribute('data-token');
     }
 }
 
@@ -111,7 +103,7 @@ export class FilechunkWidget {
     private errorElement: HTMLElement;
     private inputElement: HTMLInputElement;
     private isMSIE: boolean;
-    private previewContainer: Element;
+    private previewContainer: HTMLElement;
     private progressBar: HTMLElement;
     private translateCallback?: Translate;
     private valueElement: HTMLInputElement;
@@ -142,9 +134,10 @@ export class FilechunkWidget {
             throw `Could not find the drop zone`;
         }
 
-        let previewContainer = wrapper.querySelector(".preview-container");
+        let previewContainer = wrapper.querySelector(".preview-container") as HTMLElement;
         if (!previewContainer) {
-            previewContainer = <HTMLElement>document.createElement("ul");
+            previewContainer = document.createElement("ul") as HTMLElement;
+            previewContainer.style.display = "none";
             previewContainer.classList.add("preview-container");
             wrapper.appendChild(previewContainer);
         }
@@ -183,8 +176,18 @@ export class FilechunkWidget {
                 const defaultValues = JSON.parse(this.valueElement.value);
                 for (let id in defaultValues) {
                     let value = defaultValues[id];
-                    if ("object" === typeof value) { // Just ignore invalid input
+                    if ("object" === typeof value) {
+                        // Drupal code, values are objects containing various
+                        // information we just have to position at the right
+                        // place.
                         this.currentValue.push(new Item(id, value.filename, value.hash, value.preview));
+                    } else {
+                        // Symfony code, we do not always have a file identifie
+                        // rather a filename and a checksum instead, case in
+                        // which keys are filenames instead of identifiers and
+                        // values are file checkum strings instead of a value
+                        // object.
+                        this.currentValue.push(new Item(value, id, value));
                     }
                 }
             }
@@ -230,13 +233,22 @@ export class FilechunkWidget {
 
     private refresh() {
         const serialized: any = {};
+        let count = 0;
         this.previewContainer.innerHTML = "";
+
         for (let item of this.currentValue) {
+            count++;
+
+            // Create single value display.
             const elementString = this.config.itemPreviewTemplate.replace("FID", item.id);
             const element = this.createElementFromString(elementString);
             element.innerHTML = item.filename || item.hash || item.id;
+
+            // Append remove button.
             const removeString = this.config.removeButtonTemplate.replace(/LABEL/g, this.translate("Remove"));
             const remove = this.createElementFromString(removeString);
+
+            // Remove button behaviour.
             remove.addEventListener("click", (event: MouseEvent) => {
                 event.stopPropagation();
                 event.preventDefault();
@@ -252,10 +264,20 @@ export class FilechunkWidget {
                     this.refresh();
                 });
             });
+
+            // Rebuild item list for hidden value input.
             serialized[item.id] = {filename: item.filename, hash: item.hash};
+
             element.appendChild(remove);
             this.previewContainer.appendChild(element);
         }
+
+        if (count) {
+            this.previewContainer.style.display = "block";
+        } else {
+            this.previewContainer.style.display = "none";
+        }
+
         this.valueElement.value = JSON.stringify(serialized);
     }
 
@@ -275,14 +297,27 @@ export class FilechunkWidget {
             req.open('POST', this.config.removeUrl);
             req.setRequestHeader("X-Requested-With", "XMLHttpRequest");
             req.setRequestHeader("Accept", "application/json" );
-            req.setRequestHeader("X-File-Id", fileId);
+            if (!/^[1-9]+$/.test(fileId)) {
+                // Under certain conditions (i.e. the file not having been
+                // persisted yet) the fileId is the complete filename (which
+                // is wrong somehow) but in this case it triggers the infamous:
+                // "TypeError: Failed to execute 'setRequestHeader' on 'XMLHttpRequest': Value is not a valid ByteString."
+                // error, let's avoid front side crashing in those cases.
+                // This, of course, will only happen in Apple and Windows OS's,
+                // with files that carry broken UTF-8 characters in their names,
+                // I hate users that always name their files with broken charsets.
+                req.setRequestHeader("X-File-Id", btoa(encodeURIComponent(fileId)));
+            } else {
+                req.setRequestHeader("X-File-Id", fileId);
+            }
             req.setRequestHeader("X-File-Token", this.config.token);
+            req.setRequestHeader("X-File-field", this.config.fieldname);
             if (req.overrideMimeType) {
                 req.overrideMimeType("application/octet-stream");
             }
 
             req.addEventListener("load", () => {
-                resolve()
+                resolve();
             });
 
             req.addEventListener("error", () => {
@@ -293,61 +328,11 @@ export class FilechunkWidget {
         });
     }
 
-    private remoteUploadCall(file: File, start: number, step: number): Promise<Item> {
-        const stop = Math.min(start + step, file.size);
-
-        return new Promise<Item>((resolve: (item: Item | Promise<Item>) => void, reject: (error: any) => void) => {
-            const req = new XMLHttpRequest();
-            req.open('POST', this.config.uploadUrl);
-            req.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-            req.setRequestHeader("Accept", "application/json" );
-            req.setRequestHeader("X-File-Name", btoa(encodeURIComponent(file.name)));
-            req.setRequestHeader("Content-Range", "bytes " + start + "-" + stop + "/" + file.size);
-            req.setRequestHeader('Content-type', 'application/octet-stream');
-            req.setRequestHeader("X-File-Token", this.config.token);
-            if (req.overrideMimeType) {
-                req.overrideMimeType("application/octet-stream");
-            }
-
-            req.addEventListener("loadend", () => {
-                try {
-                    const response = JSON.parse(req.responseText);
-                    if (200 !== req.status) {
-                        throw response.message || `error: ${req.status} ${req.statusText}`;
-                    } else {
-                        if (file.size <= stop || response.finished) {
-                            if (!response.fid || !response.hash) {
-                                throw this.translate("File could not be completely uploaded");
-                            }
-                            this.updateProgress(100);
-                            resolve(new Item(response.fid, file.name, response.hash, response.preview));
-                        } else {
-                            this.updateProgress(Math.round((<number>response.offset / file.size) * 100));
-                            // Recursive promise execution
-                            if (response.resume && response.offset) {
-                                resolve(this.remoteUploadCall(file, response.offset, step));
-                            } else {
-                                resolve(this.remoteUploadCall(file, stop, step));
-                            }
-                        }
-                    }
-                } catch (error) {
-                    // Promises don't catch asyncly throwed exceptions, since
-                    // that we are working with and asynchronous XMLHttpRequest
-                    // we must catch errors manually and reject() them.
-                    reject(error);
-                }
-            });
-
-            req.send(file.slice(start, stop));
-        });
-    }
-
     private replaceUpload() {
         // https://stackoverflow.com/a/16596041
         if (this.isMSIE) {
-            const clone = <HTMLInputElement>this.inputElement.cloneNode(false);
-            (<Element>this.inputElement.parentElement).replaceChild(clone, this.inputElement);
+            const clone = this.inputElement.cloneNode(false) as HTMLInputElement;
+            (this.inputElement.parentElement as Element).replaceChild(clone, this.inputElement);
             this.inputElement = clone;
             this.inputElement.addEventListener("change", event => this.onUploadChangeListener(event));
             this.inputElement.addEventListener("drop", event => this.onUploadChangeListener(event));
@@ -380,7 +365,7 @@ export class FilechunkWidget {
             let file: File = files[i];
             this.showError(this.translate("Uploading file @file...", {'@file': file.name}));
 
-            this.remoteUploadCall(file, 0, this.config.chunksize).then(item => {
+            upload(file, this.config).then(item => {
                 this.currentValue.push(item);
                 this.clearError();
                 this.replaceUpload();
