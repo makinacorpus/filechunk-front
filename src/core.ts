@@ -353,7 +353,11 @@ export class FilechunkWidget {
         }
 
         if (this.config.maxCount && (Object.keys(this.currentValue).length + files.length) > this.config.maxCount) {
-            this.showError(this.translate("A maximum of @count elements is allowed", {'@count': this.config.maxCount}));
+            if (this.config.maxCount < 2) {
+                this.showError(this.translate("Only one element is allowed"));
+            } else {
+                this.showError(this.translate("A maximum of @count elements is allowed", {'@count': this.config.maxCount}));
+            }
             this.replaceUpload();
             return;
         }
