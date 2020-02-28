@@ -2,8 +2,9 @@
 import { Context, Item, Translate, UpdateProgress, upload } from "./upload";
 
 const DEFAULT_CHUNKSIZE = 1024 * 1024 * 2;
-const DEFAULT_REMOVE_BUTTON = `<button class="filechunk-remove btn btn-primary" type="submit" value="LABEL">LABEL</button>`;
 const DEFAULT_ITEM_TEMPLATE = `<li data-fid="FID"></li>`;
+const DEFAULT_REMOVE_BUTTON = `<button class="filechunk-remove btn btn-primary" type="submit" value="LABEL">LABEL</button>`;
+const DEFAULT_VIEW_BUTTON = `<button class="filechunk-view btn btn-primary" type="submit" value="LABEL">LABEL</button>`;
 const TEMPLATE_ERROR_ZONE = `<div class="messages error file-upload-js-error" aria-live="polite" style="display: none;"></div>`;
 const TEMPLATE_PROGRESS_BAR = `<div class="progressbar" role="progressbar" aria-valuenow="" aria-valuemin="0" aria-valuemax="100" style="display: none;"></div>`;
 
@@ -43,13 +44,15 @@ function checkNumber(value: any, min?: number): number {
 
 class FilechunkConfig implements Context {
     readonly chunksize: number;
-    readonly endpoint: string;
+    readonly endpointUpload: string;
+    readonly endpointView: string;
     readonly fieldname: string;
     readonly isMultiple: boolean;
-    readonly itemPreviewTemplate: string = `<li data-fid="FID"></li>`;
+    readonly itemPreviewTemplate: string;
     readonly maxCount: number;
     readonly onUpdate?: UpdateProgress;
-    readonly removeButtonTemplate: string = `<button class="filechunk-remove btn btn-primary" type="submit" value="Remove">' + Drupal.t( "Remove" ) + '</button>`;
+    readonly removeButtonTemplate: string;
+    readonly viewButtonTemplate: string;
     readonly removeUrl: string;
     readonly token: string;
 
@@ -85,12 +88,14 @@ class FilechunkConfig implements Context {
         }
 
         this.chunksize = checkNumber(element.getAttribute('data-chunksize') || DEFAULT_CHUNKSIZE);
-        this.endpoint = <string>element.getAttribute('data-uri-upload');
+        this.endpointUpload = <string>element.getAttribute('data-uri-upload');
+        this.endpointView = <string>element.getAttribute('data-uri-view');
         this.fieldname = <string>element.getAttribute('data-field-name');
         this.isMultiple = element.multiple;
-        this.itemPreviewTemplate = element.getAttribute( 'data-tpl-item' ) || DEFAULT_ITEM_TEMPLATE;
+        this.itemPreviewTemplate = element.getAttribute('data-tpl-item') || DEFAULT_ITEM_TEMPLATE;
         this.onUpdate = onUpdate;
-        this.removeButtonTemplate = element.getAttribute( 'data-tpl-remove' ) || DEFAULT_REMOVE_BUTTON;
+        this.removeButtonTemplate = element.getAttribute('data-tpl-remove') || DEFAULT_REMOVE_BUTTON;
+        this.viewButtonTemplate = element.getAttribute('data-tpl-view') || DEFAULT_VIEW_BUTTON;
         this.removeUrl = <string>element.getAttribute('data-uri-remove');
         this.token = <string>element.getAttribute('data-token');
     }
@@ -353,11 +358,7 @@ export class FilechunkWidget {
         }
 
         if (this.config.maxCount && (Object.keys(this.currentValue).length + files.length) > this.config.maxCount) {
-            if (this.config.maxCount < 2) {
-                this.showError(this.translate("Only one element is allowed"));
-            } else {
-                this.showError(this.translate("A maximum of @count elements is allowed", {'@count': this.config.maxCount}));
-            }
+            this.showError(this.translate("A maximum of @count elements is allowed", {'@count': this.config.maxCount}));
             this.replaceUpload();
             return;
         }

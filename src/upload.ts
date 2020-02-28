@@ -4,7 +4,8 @@ export type Translate = (text: string, variables?: any) => string;
 
 export interface Context {
     readonly chunksize: number;
-    readonly endpoint: string;
+    readonly endpointUpload: string;
+    readonly endpointView: string;
     readonly fieldname?: string;
     readonly onUpdate?: UpdateProgress;
     readonly token: string;
@@ -30,7 +31,7 @@ function remoteUploadCall(file: File, context: Context, start: number = 0): Prom
 
     return new Promise<Item>((resolve: (item: Item | Promise<Item>) => void, reject: (error: any) => void) => {
         const req = new XMLHttpRequest();
-        req.open('POST', context.endpoint);
+        req.open('POST', context.endpointUpload);
         req.setRequestHeader("Accept", "application/json" );
         req.setRequestHeader("Content-Range", "bytes " + start + "-" + stop + "/" + file.size);
         req.setRequestHeader("Content-type", 'application/octet-stream');
